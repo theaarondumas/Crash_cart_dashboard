@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Crash Cart Expiration Dashboard</title>
+  <title>Providence Holy Cross – Crash Cart Expiration Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
@@ -34,8 +34,57 @@
       background: #f7f7f7;
     }
 
+    /* Branding header */
+    .brand-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: #0053a0;
+      position: relative;
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      background: #ffffff;
+    }
+
+    .brand-mark::before {
+      width: 60%;
+      height: 20%;
+      top: 40%;
+      left: 20%;
+    }
+
+    .brand-mark::after {
+      width: 20%;
+      height: 60%;
+      top: 20%;
+      left: 40%;
+    }
+
+    .brand-text-main {
+      font-weight: bold;
+      font-size: 1.1rem;
+      color: #003366;
+    }
+
+    .brand-text-sub {
+      font-size: 0.9rem;
+      color: #555;
+    }
+
     h1 {
-      margin-bottom: 6px;
+      margin: 8px 0 4px;
       font-size: 1.6rem;
     }
 
@@ -119,7 +168,7 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 8px;
-      min-width: 650px;
+      min-width: 900px; /* wider table */
       background: #ffffff;
     }
 
@@ -133,6 +182,22 @@
       background-color: #f2f2f2;
       font-weight: 600;
       white-space: nowrap;
+    }
+
+    /* Make some columns wider */
+    th:nth-child(2),
+    td:nth-child(2) {
+      min-width: 220px; /* Item Name */
+    }
+
+    th:nth-child(3),
+    td:nth-child(3) {
+      min-width: 140px; /* Type */
+    }
+
+    th:nth-child(4),
+    td:nth-child(4) {
+      min-width: 160px; /* Location */
     }
 
     tr:nth-child(even) {
@@ -192,7 +257,7 @@
     }
 
     select.unit-select {
-      min-width: 90px;
+      min-width: 100px;
     }
 
     .delete-btn {
@@ -232,6 +297,14 @@
 </head>
 
 <body>
+  <div class="brand-header">
+    <div class="brand-mark"></div>
+    <div>
+      <div class="brand-text-main">Providence Holy Cross Medical Center</div>
+      <div class="brand-text-sub">Crash Cart Medication & Supply Expiration Dashboard</div>
+    </div>
+  </div>
+
   <h1>Crash Cart Expiration Dashboard</h1>
   <p>
     Units: 2 SOUTH, 2 EAST, 3 SOUTH, 3 EAST.  
@@ -241,7 +314,7 @@
   <div class="top-actions">
     <button id="addItemButton" type="button">Add new blank item</button>
     <button id="resetButton" type="button">Reset to default list</button>
-    <span style="font-size:0.8rem;color:#666;">(Saved locally in this browser using localStorage)</span>
+    <span style="font-size:0.8rem;color:#666;">(Saved locally on this device via localStorage)</span>
   </div>
 
   <div id="unitsContainer" class="units-container"></div>
@@ -251,9 +324,9 @@
     // 1 — CONFIG & DEFAULT DATA
     // ================================
     const UNITS = ["2 SOUTH", "2 EAST", "3 SOUTH", "3 EAST"];
-    const STORAGE_KEY = "crashCartDashboardV1";
+    const STORAGE_KEY = "crashCartDashboardV2";
 
-    // Generic placeholder examples ONLY – replace with your real cart items.
+    // Placeholder examples ONLY – replace values with real cart items.
     const defaultItems = [
       { id: "item1", unit: "2 SOUTH", name: "Medication A", type: "Medication", location: "Top drawer",    expiration_date: "2025-12-01" },
       { id: "item2", unit: "2 SOUTH", name: "Supply A",     type: "Supply",     location: "Middle drawer", expiration_date: "2026-01-15" },
@@ -505,25 +578,42 @@
     function attachFieldListeners() {
       const container = document.getElementById("unitsContainer");
 
-      // inputs and selects
-      container.querySelectorAll("input[data-id], select[data-id]").forEach(el => {
-        const handler = event => {
+      // text inputs: edit live, no re-render
+      container.querySelectorAll("input[data-id][type='text']").forEach(el => {
+        el.addEventListener("input", () => {
           const id = el.getAttribute("data-id");
           const field = el.getAttribute("data-field");
-          const value = el.value;
-
           const idx = items.findIndex(it => String(it.id) === String(id));
           if (idx === -1) return;
+          items[idx][field] = el.value;
+          saveItems();
+        });
+      });
 
-          items[idx][field] = value;
+      // date inputs: change then recompute days/status (re-render)
+      container.querySelectorAll("input[data-id][type='date']").forEach(el => {
+        el.addEventListener("change", () => {
+          const id = el.getAttribute("data-id");
+          const field = el.getAttribute("data-field");
+          const idx = items.findIndex(it => String(it.id) === String(id));
+          if (idx === -1) return;
+          items[idx][field] = el.value;
           saveItems();
           renderUnits();
-        };
+        });
+      });
 
-        el.onchange = handler;
-        if (el.tagName.toLowerCase() === "input" && el.type === "text") {
-          el.oninput = handler;
-        }
+      // unit dropdown: move item to another unit, then rerender
+      container.querySelectorAll("select[data-id]").forEach(el => {
+        el.addEventListener("change", () => {
+          const id = el.getAttribute("data-id");
+          const field = el.getAttribute("data-field");
+          const idx = items.findIndex(it => String(it.id) === String(id));
+          if (idx === -1) return;
+          items[idx][field] = el.value;
+          saveItems();
+          renderUnits();
+        });
       });
 
       // delete buttons
@@ -540,7 +630,7 @@
     function addNewItem() {
       const newItem = {
         id: "item" + nextIdCounter++,
-        unit: UNITS[0], // default to first unit; you can change via dropdown
+        unit: UNITS[0],
         name: "",
         type: "",
         location: "",
