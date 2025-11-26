@@ -188,7 +188,7 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 8px;
-      min-width: 900px;
+      min-width: 800px;
       background: #ffffff;
     }
 
@@ -204,19 +204,19 @@
       white-space: nowrap;
     }
 
-    /* Make some columns wider */
+    /* Wider columns */
+    th:nth-child(1),
+    td:nth-child(1) {
+      min-width: 220px; /* Item Name */
+    }
+
     th:nth-child(2),
     td:nth-child(2) {
-      min-width: 220px; /* Item Name */
+      min-width: 140px; /* Type */
     }
 
     th:nth-child(3),
     td:nth-child(3) {
-      min-width: 140px; /* Type */
-    }
-
-    th:nth-child(4),
-    td:nth-child(4) {
       min-width: 160px; /* Location */
     }
 
@@ -264,10 +264,6 @@
       padding: 3px 4px;
       width: 100%;
       box-sizing: border-box;
-    }
-
-    select.unit-select {
-      min-width: 100px;
     }
 
     .delete-btn {
@@ -318,7 +314,7 @@
   <h1>Crash Cart Expiration Dashboard</h1>
   <p>
     Units: 2 SOUTH, 2 EAST, 3 SOUTH, 3 EAST.  
-    Edit items in-place, move them between units with the dropdown, and your changes stay saved in this browser.
+    Edit items in-place and your changes stay saved in this browser.
   </p>
 
   <div class="top-actions">
@@ -332,7 +328,7 @@
   <script>
     // 1 — CONFIG & DEFAULT DATA
     const UNITS = ["2 SOUTH", "2 EAST", "3 SOUTH", "3 EAST"];
-    const STORAGE_KEY = "crashCartDashboardV3";
+    const STORAGE_KEY = "crashCartDashboardV4";
 
     // Placeholder examples ONLY – replace with your real data.
     const defaultItems = [
@@ -539,7 +535,7 @@
       unitSummary.appendChild(lastItemLine);
       unitSummary.appendChild(lastMedLine);
 
-      // table
+      // table (NO unit column)
       const tableWrapper = document.createElement("div");
       tableWrapper.className = "table-wrapper";
 
@@ -547,7 +543,6 @@
       table.innerHTML = `
         <thead>
           <tr>
-            <th>Unit</th>
             <th>Item Name</th>
             <th>Type</th>
             <th>Location</th>
@@ -566,13 +561,6 @@
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-          <td>
-            <select class="unit-select" data-id="${item.id}" data-field="unit">
-              ${UNITS.map(u =>
-                `<option value="${u}" ${u === item.unit ? "selected" : ""}>${u}</option>`
-              ).join("")}
-            </select>
-          </td>
           <td>
             <input type="text" data-id="${item.id}" data-field="name" value="${item.name || ""}">
           </td>
@@ -623,7 +611,7 @@
       return section;
     }
 
-    // 5 — EVENT HANDLERS
+    // 5 — EVENTS
     function attachFieldListeners() {
       const container = document.getElementById("unitsContainer");
 
@@ -652,19 +640,6 @@
         });
       });
 
-      // unit dropdown
-      container.querySelectorAll("select[data-id]").forEach(el => {
-        el.addEventListener("change", () => {
-          const id = el.getAttribute("data-id");
-          const field = el.getAttribute("data-field");
-          const idx = items.findIndex(it => String(it.id) === String(id));
-          if (idx === -1) return;
-          items[idx][field] = el.value;
-          saveItems();
-          renderUnits();
-        });
-      });
-
       // delete buttons
       container.querySelectorAll("button[data-action='delete']").forEach(btn => {
         btn.onclick = () => {
@@ -679,7 +654,7 @@
     function addNewItem() {
       const newItem = {
         id: "item" + nextIdCounter++,
-        unit: UNITS[0],
+        unit: UNITS[0],      // default: 2 SOUTH (doesn't show in table)
         name: "",
         type: "",
         location: "",
