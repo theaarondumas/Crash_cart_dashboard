@@ -188,7 +188,7 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 8px;
-      min-width: 900px; /* wider table */
+      min-width: 900px;
       background: #ffffff;
     }
 
@@ -330,13 +330,11 @@
   <div id="unitsContainer" class="units-container"></div>
 
   <script>
-    // ================================
     // 1 — CONFIG & DEFAULT DATA
-    // ================================
     const UNITS = ["2 SOUTH", "2 EAST", "3 SOUTH", "3 EAST"];
     const STORAGE_KEY = "crashCartDashboardV3";
 
-    // Placeholder examples ONLY – replace values with real cart items.
+    // Placeholder examples ONLY – replace with your real data.
     const defaultItems = [
       { id: "item1", unit: "2 SOUTH", name: "Medication A", type: "Medication", location: "Top drawer",    expiration_date: "2025-12-01" },
       { id: "item2", unit: "2 SOUTH", name: "Supply A",     type: "Supply",     location: "Middle drawer", expiration_date: "2026-01-15" },
@@ -354,9 +352,7 @@
     let items = [];
     let nextIdCounter = 1000;
 
-    // ================================
-    // 2 — STORAGE HELPERS
-    // ================================
+    // 2 — STORAGE
     function loadItems() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -369,7 +365,6 @@
         console.warn("Could not load items from storage:", e);
         items = defaultItems.map(x => ({ ...x }));
       }
-      // set next id
       nextIdCounter = items.reduce((max, it) => {
         const num = parseInt(String(it.id).replace(/\D/g, ""), 10);
         return isNaN(num) ? max : Math.max(max, num);
@@ -393,9 +388,7 @@
       renderUnits();
     }
 
-    // ================================
     // 3 — DATE & STATUS HELPERS
-    // ================================
     function parseDate(dateStr) {
       if (!dateStr) return null;
       const parts = dateStr.split("-");
@@ -424,9 +417,7 @@
       return unitName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     }
 
-    // ================================
     // 4 — RENDERING
-    // ================================
     function renderUnits() {
       const container = document.getElementById("unitsContainer");
       container.innerHTML = "";
@@ -469,7 +460,7 @@
       body.id = bodyId;
       body.setAttribute("aria-hidden", "true");
 
-      // filter + enrich items for this unit
+      // filter + enrich
       const unitItems = items
         .filter(it => it.unit === unitName)
         .map(it => {
@@ -484,7 +475,7 @@
           return a.expDate - b.expDate;
         });
 
-      // compute summary: next, last, last med
+      // summary: next, last, last med
       let nextItem = null;
       let lastItem = null;
       let lastMed = null;
@@ -492,17 +483,22 @@
       const validDatedItems = unitItems.filter(x => x.expDate);
       if (validDatedItems.length > 0) {
         nextItem = validDatedItems[0];
-        lastItem = validDatedItems.reduce((max, it) => (it.expDate > max.expDate ? it : max), validDatedItems[0]);
+        lastItem = validDatedItems.reduce(
+          (max, it) => (it.expDate > max.expDate ? it : max),
+          validDatedItems[0]
+        );
       }
 
       const validMeds = validDatedItems.filter(x =>
         (x.type || "").toLowerCase().includes("med")
       );
       if (validMeds.length > 0) {
-        lastMed = validMeds.reduce((max, it) => (it.expDate > max.expDate ? it : max), validMeds[0]);
+        lastMed = validMeds.reduce(
+          (max, it) => (it.expDate > max.expDate ? it : max),
+          validMeds[0]
+        );
       }
 
-      // summary block
       const unitSummary = document.createElement("div");
       unitSummary.className = "unit-summary";
 
@@ -532,7 +528,7 @@
       lastMedLine.className = "summary-line";
       if (lastMed) {
         const daysText = lastMed.days === null ? "no date" : `${lastMed.days} days`;
-        const dateText = lastMed.expiration_date || "—`;
+        const dateText = lastMed.expiration_date || "—";
         lastMedLine.innerHTML =
           `<strong>Last med drug to expire:</strong> ${lastMed.name || "(unnamed)"} – ${dateText} (${daysText})`;
       } else {
@@ -606,7 +602,6 @@
       body.appendChild(unitSummary);
       body.appendChild(tableWrapper);
 
-      // toggle open/close
       function toggleBody() {
         const isOpen = body.style.display === "block";
         body.style.display = isOpen ? "none" : "block";
@@ -628,13 +623,11 @@
       return section;
     }
 
-    // ================================
     // 5 — EVENT HANDLERS
-    // ================================
     function attachFieldListeners() {
       const container = document.getElementById("unitsContainer");
 
-      // text inputs: edit live, no re-render
+      // text inputs: live edit, no rerender
       container.querySelectorAll("input[data-id][type='text']").forEach(el => {
         el.addEventListener("input", () => {
           const id = el.getAttribute("data-id");
@@ -646,7 +639,7 @@
         });
       });
 
-      // date inputs: change then recompute days/status (re-render)
+      // date inputs: change → recompute days & summary
       container.querySelectorAll("input[data-id][type='date']").forEach(el => {
         el.addEventListener("change", () => {
           const id = el.getAttribute("data-id");
@@ -659,7 +652,7 @@
         });
       });
 
-      // unit dropdown: move item to another unit, then rerender
+      // unit dropdown
       container.querySelectorAll("select[data-id]").forEach(el => {
         el.addEventListener("change", () => {
           const id = el.getAttribute("data-id");
@@ -697,9 +690,7 @@
       renderUnits();
     }
 
-    // ================================
     // 6 — INIT
-    // ================================
     document.addEventListener("DOMContentLoaded", () => {
       loadItems();
       renderUnits();
