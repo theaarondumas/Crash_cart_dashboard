@@ -159,6 +159,26 @@
       background: #fafafa;
     }
 
+    .unit-summary {
+      font-size: 0.85rem;
+      color: #444;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+
+    .unit-summary strong {
+      font-weight: 600;
+    }
+
+    .summary-line {
+      padding: 4px 6px;
+      border-radius: 4px;
+      background: #f3f3f3;
+    }
+
     .table-wrapper {
       width: 100%;
       overflow-x: auto;
@@ -235,16 +255,6 @@
       background-color: var(--expired-bg);
       color: var(--expired-text);
       border: 1px solid var(--expired-border);
-    }
-
-    .unit-summary {
-      font-size: 0.85rem;
-      color: #444;
-      margin-top: 4px;
-    }
-
-    .unit-summary strong {
-      font-weight: 600;
     }
 
     input[type="text"],
@@ -324,7 +334,7 @@
     // 1 — CONFIG & DEFAULT DATA
     // ================================
     const UNITS = ["2 SOUTH", "2 EAST", "3 SOUTH", "3 EAST"];
-    const STORAGE_KEY = "crashCartDashboardV2";
+    const STORAGE_KEY = "crashCartDashboardV3";
 
     // Placeholder examples ONLY – replace values with real cart items.
     const defaultItems = [
@@ -459,7 +469,7 @@
       body.id = bodyId;
       body.setAttribute("aria-hidden", "true");
 
-      // filter + sort items for this unit
+      // filter + enrich items for this unit
       const unitItems = items
         .filter(it => it.unit === unitName)
         .map(it => {
@@ -474,18 +484,64 @@
           return a.expDate - b.expDate;
         });
 
-      // summary
+      // compute summary: next, last, last med
+      let nextItem = null;
+      let lastItem = null;
+      let lastMed = null;
+
+      const validDatedItems = unitItems.filter(x => x.expDate);
+      if (validDatedItems.length > 0) {
+        nextItem = validDatedItems[0];
+        lastItem = validDatedItems.reduce((max, it) => (it.expDate > max.expDate ? it : max), validDatedItems[0]);
+      }
+
+      const validMeds = validDatedItems.filter(x =>
+        (x.type || "").toLowerCase().includes("med")
+      );
+      if (validMeds.length > 0) {
+        lastMed = validMeds.reduce((max, it) => (it.expDate > max.expDate ? it : max), validMeds[0]);
+      }
+
+      // summary block
       const unitSummary = document.createElement("div");
       unitSummary.className = "unit-summary";
-      if (unitItems.length > 0) {
-        const next = unitItems[0];
-        const daysText = next.days === null ? "no date" : `${next.days} days`;
-        const dateText = next.expiration_date || "—";
-        unitSummary.innerHTML =
-          `<strong>Next to expire:</strong> ${next.name || "(unnamed)"} (${next.type || "—"}) – ${daysText} (on ${dateText})`;
+
+      const nextLine = document.createElement("div");
+      nextLine.className = "summary-line";
+      if (nextItem) {
+        const daysText = nextItem.days === null ? "no date" : `${nextItem.days} days`;
+        const dateText = nextItem.expiration_date || "—";
+        nextLine.innerHTML =
+          `<strong>Next to expire (all items):</strong> ${nextItem.name || "(unnamed)"} – ${dateText} (${daysText})`;
       } else {
-        unitSummary.textContent = "No items assigned to this unit yet.";
+        nextLine.innerHTML = `<strong>Next to expire (all items):</strong> —`;
       }
+
+      const lastItemLine = document.createElement("div");
+      lastItemLine.className = "summary-line";
+      if (lastItem) {
+        const daysText = lastItem.days === null ? "no date" : `${lastItem.days} days`;
+        const dateText = lastItem.expiration_date || "—";
+        lastItemLine.innerHTML =
+          `<strong>Last item to expire (all items):</strong> ${lastItem.name || "(unnamed)"} – ${dateText} (${daysText})`;
+      } else {
+        lastItemLine.innerHTML = `<strong>Last item to expire (all items):</strong> —`;
+      }
+
+      const lastMedLine = document.createElement("div");
+      lastMedLine.className = "summary-line";
+      if (lastMed) {
+        const daysText = lastMed.days === null ? "no date" : `${lastMed.days} days`;
+        const dateText = lastMed.expiration_date || "—`;
+        lastMedLine.innerHTML =
+          `<strong>Last med drug to expire:</strong> ${lastMed.name || "(unnamed)"} – ${dateText} (${daysText})`;
+      } else {
+        lastMedLine.innerHTML = `<strong>Last med drug to expire:</strong> —`;
+      }
+
+      unitSummary.appendChild(nextLine);
+      unitSummary.appendChild(lastItemLine);
+      unitSummary.appendChild(lastMedLine);
 
       // table
       const tableWrapper = document.createElement("div");
