@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Crash Cart Expiration Dashboard</title>
-  <!-- Mobile responsive -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
     :root {
@@ -44,6 +43,31 @@
       margin-top: 0;
       color: #555;
       font-size: 0.95rem;
+    }
+
+    .top-actions {
+      margin: 10px 0 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .top-actions button {
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      border: 1px solid #888;
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    .top-actions button:hover {
+      background: #f0f0f0;
+    }
+
+    .units-container {
+      margin-top: 5px;
     }
 
     .unit-section {
@@ -95,7 +119,7 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 8px;
-      min-width: 540px; /* ensures good layout but scrolls on phones */
+      min-width: 650px;
       background: #ffffff;
     }
 
@@ -158,7 +182,33 @@
       font-weight: 600;
     }
 
-    /* Mobile tweaks */
+    input[type="text"],
+    input[type="date"],
+    select {
+      font-size: 0.8rem;
+      padding: 3px 4px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    select.unit-select {
+      min-width: 90px;
+    }
+
+    .delete-btn {
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #b71c1c;
+      background: #ffebee;
+      color: #b71c1c;
+      cursor: pointer;
+    }
+
+    .delete-btn:hover {
+      background: #ffcdd2;
+    }
+
     @media (max-width: 768px) {
       body {
         padding: 12px;
@@ -185,61 +235,128 @@
   <h1>Crash Cart Expiration Dashboard</h1>
   <p>
     Units: 2 SOUTH, 2 EAST, 3 SOUTH, 3 EAST.  
-    Each section shows items sorted by soonest expiration and color-coded by status.
+    Edit items in-place, move them between units with the dropdown, and your changes stay saved in this browser.
   </p>
+
+  <div class="top-actions">
+    <button id="addItemButton" type="button">Add new blank item</button>
+    <button id="resetButton" type="button">Reset to default list</button>
+    <span style="font-size:0.8rem;color:#666;">(Saved locally in this browser using localStorage)</span>
+  </div>
+
+  <div id="unitsContainer" class="units-container"></div>
 
   <script>
     // ================================
-    // 1 — DATA (EDIT ONLY THIS PART)
+    // 1 — CONFIG & DEFAULT DATA
     // ================================
-    // Use YYYY-MM-DD for expiration_date
-    const crashCarts = {
-      "2 SOUTH": [
-        { name: "Epinephrine 1:10,000", type: "Medication", location: "Top Drawer",    expiration_date: "2025-12-01" },
-        { name: "Atropine 1 mg",        type: "Medication", location: "Top Drawer",    expiration_date: "2025-11-28" },
-        { name: "Defib Pads Adult",     type: "Supply",     location: "Side Compartment", expiration_date: "2026-04-15" }
-      ],
-      "2 EAST": [
-        { name: "Amiodarone 150 mg",    type: "Medication", location: "Top Drawer",    expiration_date: "2026-02-10" },
-        { name: "10 mL Saline Flush",   type: "Supply",     location: "Middle Drawer", expiration_date: "2025-12-05" }
-      ],
-      "3 SOUTH": [
-        { name: "IV Start Kit",         type: "Supply",     location: "Middle Drawer", expiration_date: "2027-03-01" },
-        { name: "Atropine 1 mg",        type: "Medication", location: "Top Drawer",    expiration_date: "2025-11-30" }
-      ],
-      "3 EAST": [
-        { name: "Epinephrine 1:1,000",  type: "Medication", location: "Top Drawer",    expiration_date: "2026-01-12" },
-        { name: "Defib Pads Adult",     type: "Supply",     location: "Side Compartment", expiration_date: "2025-12-20" }
-      ]
-    };
+    const UNITS = ["2 SOUTH", "2 EAST", "3 SOUTH", "3 EAST"];
+    const STORAGE_KEY = "crashCartDashboardV1";
+
+    // Generic placeholder examples ONLY – replace with your real cart items.
+    const defaultItems = [
+      { id: "item1", unit: "2 SOUTH", name: "Medication A", type: "Medication", location: "Top drawer",    expiration_date: "2025-12-01" },
+      { id: "item2", unit: "2 SOUTH", name: "Supply A",     type: "Supply",     location: "Middle drawer", expiration_date: "2026-01-15" },
+
+      { id: "item3", unit: "2 EAST",  name: "Medication B", type: "Medication", location: "Top drawer",    expiration_date: "2025-11-20" },
+      { id: "item4", unit: "2 EAST",  name: "Supply B",     type: "Supply",     location: "Side bin",      expiration_date: "2026-03-10" },
+
+      { id: "item5", unit: "3 SOUTH", name: "Medication C", type: "Medication", location: "Top drawer",    expiration_date: "2025-10-05" },
+      { id: "item6", unit: "3 SOUTH", name: "Supply C",     type: "Supply",     location: "Middle drawer", expiration_date: "2027-02-01" },
+
+      { id: "item7", unit: "3 EAST",  name: "Medication D", type: "Medication", location: "Top drawer",    expiration_date: "2026-02-12" },
+      { id: "item8", unit: "3 EAST",  name: "Supply D",     type: "Supply",     location: "Side bin",      expiration_date: "2025-12-30" }
+    ];
+
+    let items = [];
+    let nextIdCounter = 1000;
 
     // ================================
-    // 2 — HELPERS
+    // 2 — STORAGE HELPERS
     // ================================
-    function slugifyUnitName(unitName) {
-      return unitName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    function loadItems() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          items = JSON.parse(raw);
+        } else {
+          items = defaultItems.map(x => ({ ...x }));
+        }
+      } catch (e) {
+        console.warn("Could not load items from storage:", e);
+        items = defaultItems.map(x => ({ ...x }));
+      }
+      // set next id
+      nextIdCounter = items.reduce((max, it) => {
+        const num = parseInt(String(it.id).replace(/\D/g, ""), 10);
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 1000) + 1;
     }
 
+    function saveItems() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      } catch (e) {
+        console.warn("Could not save items:", e);
+      }
+    }
+
+    function resetItems() {
+      if (!confirm("Reset to default placeholder list? This will erase your local edits on this device.")) {
+        return;
+      }
+      items = defaultItems.map(x => ({ ...x }));
+      saveItems();
+      renderUnits();
+    }
+
+    // ================================
+    // 3 — DATE & STATUS HELPERS
+    // ================================
     function parseDate(dateStr) {
-      const p = dateStr.split("-");
-      return new Date(p[0], p[1] - 1, p[2]);
+      if (!dateStr) return null;
+      const parts = dateStr.split("-");
+      if (parts.length !== 3) return null;
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      return isNaN(d.getTime()) ? null : d;
     }
 
     function daysFromToday(targetDate) {
+      if (!targetDate) return null;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const diff = targetDate - today;
       return Math.round(diff / (1000 * 60 * 60 * 24));
     }
 
-    function getStatusClass(days) {
-      if (days < 0)  return { label: "Expired",          className: "status-expired" };
+    function getStatusInfo(days) {
+      if (days === null) return { label: "—", className: "" };
+      if (days < 0) return { label: "Expired", className: "status-expired" };
       if (days <= 30) return { label: "Critical (≤30d)", className: "status-critical" };
-      if (days <= 90) return { label: "Warning (31–90d)",className: "status-warning" };
-      return { label: "OK (>90d)",                       className: "status-ok" };
+      if (days <= 90) return { label: "Warning (31–90d)", className: "status-warning" };
+      return { label: "OK (>90d)", className: "status-ok" };
     }
 
-    function buildUnitSection(unitName, items) {
+    function slugifyUnitName(unitName) {
+      return unitName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    }
+
+    // ================================
+    // 4 — RENDERING
+    // ================================
+    function renderUnits() {
+      const container = document.getElementById("unitsContainer");
+      container.innerHTML = "";
+
+      UNITS.forEach(unitName => {
+        const section = buildUnitSection(unitName);
+        container.appendChild(section);
+      });
+
+      attachFieldListeners();
+    }
+
+    function buildUnitSection(unitName) {
       const section = document.createElement("div");
       section.className = "unit-section";
 
@@ -269,27 +386,35 @@
       body.id = bodyId;
       body.setAttribute("aria-hidden", "true");
 
-      // Process items: add days + sort by soonest
-      const processed = items.map(item => {
-        const expDate = parseDate(item.expiration_date);
-        const days = daysFromToday(expDate);
-        return { ...item, expDate, days };
-      }).sort((a, b) => a.expDate - b.expDate);
+      // filter + sort items for this unit
+      const unitItems = items
+        .filter(it => it.unit === unitName)
+        .map(it => {
+          const d = parseDate(it.expiration_date);
+          const days = daysFromToday(d);
+          return { ...it, expDate: d, days };
+        })
+        .sort((a, b) => {
+          if (!a.expDate && !b.expDate) return 0;
+          if (!a.expDate) return 1;
+          if (!b.expDate) return -1;
+          return a.expDate - b.expDate;
+        });
 
-      // Quick mini summary for the unit
+      // summary
       const unitSummary = document.createElement("div");
       unitSummary.className = "unit-summary";
-
-      if (processed.length > 0) {
-        const next = processed[0];
+      if (unitItems.length > 0) {
+        const next = unitItems[0];
+        const daysText = next.days === null ? "no date" : `${next.days} days`;
+        const dateText = next.expiration_date || "—";
         unitSummary.innerHTML =
-          `<strong>Next to expire:</strong> ${next.name} ` +
-          `(${next.type}) in ${next.days} days on ${next.expiration_date}`;
+          `<strong>Next to expire:</strong> ${next.name || "(unnamed)"} (${next.type || "—"}) – ${daysText} (on ${dateText})`;
       } else {
-        unitSummary.textContent = "No items defined for this unit.";
+        unitSummary.textContent = "No items assigned to this unit yet.";
       }
 
-      // Build table
+      // table
       const tableWrapper = document.createElement("div");
       tableWrapper.className = "table-wrapper";
 
@@ -297,28 +422,53 @@
       table.innerHTML = `
         <thead>
           <tr>
-            <th>Item</th>
+            <th>Unit</th>
+            <th>Item Name</th>
             <th>Type</th>
             <th>Location</th>
             <th>Expiration Date</th>
             <th>Days Remaining</th>
             <th>Status</th>
+            <th>Delete</th>
           </tr>
         </thead>
         <tbody></tbody>
       `;
       const tbody = table.querySelector("tbody");
 
-      processed.forEach(item => {
-        const s = getStatusClass(item.days);
+      unitItems.forEach(item => {
+        const statusInfo = getStatusInfo(item.days);
         const tr = document.createElement("tr");
+
         tr.innerHTML = `
-          <td>${item.name}</td>
-          <td>${item.type}</td>
-          <td>${item.location}</td>
-          <td>${item.expiration_date}</td>
-          <td>${item.days}</td>
-          <td><span class="status-pill ${s.className}">${s.label}</span></td>
+          <td>
+            <select class="unit-select" data-id="${item.id}" data-field="unit">
+              ${UNITS.map(u =>
+                `<option value="${u}" ${u === item.unit ? "selected" : ""}>${u}</option>`
+              ).join("")}
+            </select>
+          </td>
+          <td>
+            <input type="text" data-id="${item.id}" data-field="name" value="${item.name || ""}">
+          </td>
+          <td>
+            <input type="text" data-id="${item.id}" data-field="type" value="${item.type || ""}">
+          </td>
+          <td>
+            <input type="text" data-id="${item.id}" data-field="location" value="${item.location || ""}">
+          </td>
+          <td>
+            <input type="date" data-id="${item.id}" data-field="expiration_date" value="${item.expiration_date || ""}">
+          </td>
+          <td>${item.days === null ? "—" : item.days}</td>
+          <td>
+            ${statusInfo.className
+              ? `<span class="status-pill ${statusInfo.className}">${statusInfo.label}</span>`
+              : statusInfo.label}
+          </td>
+          <td>
+            <button type="button" class="delete-btn" data-id="${item.id}" data-action="delete">X</button>
+          </td>
         `;
         tbody.appendChild(tr);
       });
@@ -327,7 +477,7 @@
       body.appendChild(unitSummary);
       body.appendChild(tableWrapper);
 
-      // Toggle behavior (click + keyboard)
+      // toggle open/close
       function toggleBody() {
         const isOpen = body.style.display === "block";
         body.style.display = isOpen ? "none" : "block";
@@ -337,7 +487,7 @@
       }
 
       header.addEventListener("click", toggleBody);
-      header.addEventListener("keydown", (e) => {
+      header.addEventListener("keydown", e => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           toggleBody();
@@ -350,13 +500,66 @@
     }
 
     // ================================
-    // 3 — BUILD PAGE
+    // 5 — EVENT HANDLERS
+    // ================================
+    function attachFieldListeners() {
+      const container = document.getElementById("unitsContainer");
+
+      // inputs and selects
+      container.querySelectorAll("input[data-id], select[data-id]").forEach(el => {
+        const handler = event => {
+          const id = el.getAttribute("data-id");
+          const field = el.getAttribute("data-field");
+          const value = el.value;
+
+          const idx = items.findIndex(it => String(it.id) === String(id));
+          if (idx === -1) return;
+
+          items[idx][field] = value;
+          saveItems();
+          renderUnits();
+        };
+
+        el.onchange = handler;
+        if (el.tagName.toLowerCase() === "input" && el.type === "text") {
+          el.oninput = handler;
+        }
+      });
+
+      // delete buttons
+      container.querySelectorAll("button[data-action='delete']").forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.getAttribute("data-id");
+          items = items.filter(it => String(it.id) !== String(id));
+          saveItems();
+          renderUnits();
+        };
+      });
+    }
+
+    function addNewItem() {
+      const newItem = {
+        id: "item" + nextIdCounter++,
+        unit: UNITS[0], // default to first unit; you can change via dropdown
+        name: "",
+        type: "",
+        location: "",
+        expiration_date: ""
+      };
+      items.push(newItem);
+      saveItems();
+      renderUnits();
+    }
+
+    // ================================
+    // 6 — INIT
     // ================================
     document.addEventListener("DOMContentLoaded", () => {
-      for (const unit in crashCarts) {
-        const section = buildUnitSection(unit, crashCarts[unit]);
-        document.body.appendChild(section);
-      }
+      loadItems();
+      renderUnits();
+
+      document.getElementById("resetButton").addEventListener("click", resetItems);
+      document.getElementById("addItemButton").addEventListener("click", addNewItem);
     });
   </script>
 </body>
